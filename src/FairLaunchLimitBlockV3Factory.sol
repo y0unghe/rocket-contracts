@@ -15,15 +15,7 @@ The factory contract can create the same address on each evm chain through the c
 If a player transfers ETHs to the wrong chain, you can also help the player get his ETH back by refunding his money by deploying a contract on a specific chain.
  */
 contract FairLaunchLimitBlockV3Factory is IFairLaunch, ReentrancyGuard {
-    uint256 public price;
     address public owner;
-    address public feeTo;
-
-    uint256 public constant FAIR_LAUNCH_LIMIT_AMOUNT = 1;
-    uint256 public constant FAIR_LAUNCH_LIMIT_BLOCK = 2;
-
-    address public refundFeeTo;
-    uint256 public refundFeeRate;
 
     address public immutable locker;
 
@@ -35,51 +27,23 @@ contract FairLaunchLimitBlockV3Factory is IFairLaunch, ReentrancyGuard {
         _;
     }
 
-    constructor(
-        address _feeTo,
-        address _locker,
-        address _positionManager,
-        address _factory
-    ) {
+    constructor(address _locker, address _positionManager, address _factory) {
         owner = msg.sender;
-        refundFeeRate = 600;
-        refundFeeTo = _feeTo;
         locker = _locker;
-        price = 0.01 ether;
 
         allowlist[_positionManager] = true;
         allowlist[_factory] = true;
-    }
-
-    function setPrice(uint256 _price) public onlyOwner {
-        price = _price;
     }
 
     function setOwner(address _owner) public onlyOwner {
         owner = _owner;
     }
 
-    function setFeeTo(address _feeTo) public onlyOwner {
-        feeTo = _feeTo;
-    }
-
-    function setRefundFeeTo(address _refundFeeTo) public onlyOwner {
-        refundFeeTo = _refundFeeTo;
-    }
-
-    function setRefundFeeRate(uint256 _refundFeeRate) public onlyOwner {
-        refundFeeRate = _refundFeeRate;
-    }
-
     function getFairLaunchLimitBlockV3Address(
         uint256 salt,
         address _projectOwner,
-        uint24 _poolFee,
         FairLaunchLimitBlockStruct memory params
     ) public view returns (address) {
-        params.refundFeeRate = refundFeeRate;
-        params.refundFeeTo = refundFeeTo;
-
         bytes32 _salt = keccak256(abi.encodePacked(salt));
         return
             Create2.computeAddress(
@@ -87,39 +51,28 @@ contract FairLaunchLimitBlockV3Factory is IFairLaunch, ReentrancyGuard {
                 keccak256(
                     abi.encodePacked(
                         type(FairLaunchLimitBlockTokenV3).creationCode,
-                        abi.encode(locker, _poolFee, _projectOwner, params)
+                        abi.encode(locker, _projectOwner, params)
                     )
                 )
             );
     }
 
     function deployFairLaunchLimitBlockV3Contract(
-        uint256 salt,
+        uint256 salt, // random number as salt
         address _projectOwner,
-        uint24 _poolFee,
         FairLaunchLimitBlockStruct memory params
     ) public payable nonReentrant {
-        params.refundFeeRate = refundFeeRate;
-        params.refundFeeTo = refundFeeTo;
-
         require(
             allowlist[params.uniswapFactory] && allowlist[params.uniswapRouter],
             "Uniswap factory or router should be in allowlist."
         );
 
-        if (feeTo != address(0) && price > 0) {
-            require(msg.value >= price, "insufficient price");
-
-            (bool success, ) = payable(feeTo).call{value: msg.value}("");
-            require(success, "Transfer failed.");
-        }
-
         bytes32 _salt = keccak256(abi.encodePacked(salt));
         bytes memory bytecode = abi.encodePacked(
             type(FairLaunchLimitBlockTokenV3).creationCode,
-            abi.encode(locker, _poolFee, _projectOwner, params)
+            abi.encode(locker, _projectOwner, params)
         );
         address addr = Create2.deploy(0, _salt, bytecode);
-        emit Deployed(addr, FAIR_LAUNCH_LIMIT_BLOCK);
+        emit Deployed(addr);
     }
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 interface IFairLaunch {
-    event Deployed(address indexed addr, uint256 _type);
+    event Deployed(address indexed addr);
     event FundEvent(
         address indexed to,
         uint256 ethAmount,
@@ -40,8 +40,5 @@ struct FairLaunchLimitBlockStruct {
     string name;
     string symbol;
     string meta;
-    uint256 afterBlock;
-    uint256 softTopCap;
-    uint256 refundFeeRate;
-    address refundFeeTo;
+    uint256 softTopCap; // Hardcap
 }
